@@ -73,6 +73,23 @@
             outline: none;
         }
 
+        .empty-slot {
+            display: inline-block;
+            width: 1ch;
+            text-align: center;
+        }
+
+        .empty-slot-plain {
+            color: #666;
+        }
+
+        .pattern-slot-empty {
+            display: inline-block;
+            width: 1ch;
+            text-align: center;
+            color: #666;
+        }
+
         #input:disabled {
             color: #666;
         }
@@ -173,7 +190,6 @@
             const parts = text.split(/(\x1b\[[0-9;]*m)/);
             const container = document.createDocumentFragment();
             let currentClass = null;
-            let currentSpan = null;
 
             for (const part of parts) {
                 if (part.startsWith('\x1b[')) {
@@ -182,27 +198,49 @@
                     if (code === '0' || code === '') {
                         // Reset
                         currentClass = null;
-                        currentSpan = null;
                     } else {
                         currentClass = ansiToClass[code] || null;
                     }
                 } else if (part) {
-                    // This is text content
-                    if (currentClass) {
-                        const span = document.createElement('span');
-                        const chartype = (part === '\u2610' ? "wallbox" : "other")
-                        span.className = `${currentClass} ${chartype}`;
-                        span.textContent = part;
-                        container.appendChild(span);
-                    } else {
-                        container.appendChild(document.createTextNode(part));
-                    }
+                    // This is text content - process character by character for special chars
+                    container.appendChild(processTextPart(part, currentClass));
                 }
             }
 
             return container;
         }
 
+        function processTextPart(text, colorClass) {
+            const fragment = document.createDocumentFragment();
+
+            for (const char of text) {
+                const span = document.createElement('span');
+
+                if (char === '\u2610') {
+                    // Empty box character (☐)
+                    if (colorClass) {
+                        span.className = `empty-slot ${colorClass}`;
+                    } else {
+                        span.className = 'empty-slot empty-slot-plain';
+                    }
+                    span.textContent = char;
+                    fragment.appendChild(span);
+                } else if (char === '.') {
+                    // Dot for empty pattern line slots
+                    span.className = 'pattern-slot-empty';
+                    span.textContent = char;
+                    fragment.appendChild(span);
+                } else if (colorClass) {
+                    span.className = colorClass;
+                    span.textContent = char;
+                    fragment.appendChild(span);
+                } else {
+                    fragment.appendChild(document.createTextNode(char));
+                }
+            }
+
+            return fragment;
+        }
         function print(text, className = '') {
             const span = document.createElement('span');
             if (className) span.className = className;
