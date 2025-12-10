@@ -17,6 +17,14 @@
             margin: auto;
         }
 
+        a {
+            color: #a7d69c;
+        }
+
+        a:visited {
+            color: #9dcf7d;
+        }
+
         #console {
             background: #0c0c0c;
             border: 1px solid #333;
@@ -119,7 +127,14 @@
             <input type="text" id="input" disabled placeholder="Loading..." autofocus>
         </div>
     </div>
-
+    <div class="info">
+        <h3>About this project</h3>
+        <p>This is an interface for a monte carlo tree search AI for the game Azul</p>
+        <p>Read more about how it works <a href="https://github.com/tichaelmurvey/azul_mcts">on the repo</a></p>
+        <p>Made by <a href="https://github.com/tichaelmurvey">Michael Turvey</a></p>
+        <p>More stuff: <a href="https://funwebsite.fun/">funbwebsite.fun</a></p>
+        <p><a href="https://boardgamegeek.com/boardgame/230802/azul#buyacopy">Buy Azul, it's a good game</a></p>
+    </div>
     <script type="text/javascript">
         let pyodide = null;
         let awaitingInput = false;
