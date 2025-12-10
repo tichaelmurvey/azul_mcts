@@ -5,13 +5,18 @@
     <script src="https://cdn.jsdelivr.net/pyodide/v0.29.0/full/pyodide.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Mono:wght@100..900&display=swap" rel="stylesheet">
+
     <style>
         body {
             background: #1e1e1e;
             color: #d4d4d4;
-            font-family: "Courier Prime", monospace;
+            font-family: "Noto Sans Mono", monospace;
+            font-optical-sizing: none;
+            font-weight: 400;
+            font-style: normal;
+            font-variation-settings:
+                "wdth" 100;
             font-weight: 400;
             font-style: normal;
             margin: 0;
@@ -19,6 +24,7 @@
         }
 
         .info {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
             max-width: 900px;
             margin: auto;
         }
@@ -184,7 +190,8 @@
                     // This is text content
                     if (currentClass) {
                         const span = document.createElement('span');
-                        span.className = currentClass;
+                        const chartype = (part === '\u2610' ? "wallbox" : "other")
+                        span.className = `${currentClass} ${chartype}`;
                         span.textContent = part;
                         container.appendChild(span);
                     } else {
