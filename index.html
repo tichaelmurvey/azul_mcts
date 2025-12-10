@@ -1,0 +1,449 @@
+<!doctype html>
+<html>
+
+<head>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.29.0/full/pyodide.js"></script>
+    <style>
+        body {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .info {
+            max-width: 900px;
+            margin: auto;
+        }
+
+        #console {
+            background: #0c0c0c;
+            border: 1px solid #333;
+            border-radius: 5px;
+            padding: 15px;
+            max-width: 900px;
+            margin: 0 auto;
+            height: 70vh;
+            overflow-y: auto;
+        }
+
+        #output {
+            white-space: pre-wrap;
+            margin-bottom: 10px;
+        }
+
+        #input-line {
+            display: flex;
+            align-items: center;
+        }
+
+        #prompt {
+            color: #6a9955;
+            margin-right: 8px;
+        }
+
+        #input {
+            background: transparent;
+            border: none;
+            color: #ce9178;
+            font-family: inherit;
+            font-size: inherit;
+            flex-grow: 1;
+            outline: none;
+        }
+
+        #input:disabled {
+            color: #666;
+        }
+
+        .system {
+            color: #569cd6;
+        }
+
+        .error {
+            color: #f44747;
+        }
+
+        .success {
+            color: #4ec9b0;
+        }
+
+        .mcts {
+            color: #dcdcaa;
+        }
+
+        .prompt-text {
+            color: #6a9955;
+        }
+
+        /* ANSI color classes */
+        .ansi-blue {
+            color: #5c5cff;
+        }
+
+        .ansi-yellow {
+            color: #ffff00;
+        }
+
+        .ansi-red {
+            color: #ff5c5c;
+        }
+
+        .ansi-magenta {
+            color: #ff5cff;
+        }
+
+        .ansi-white {
+            color: #ffffff;
+        }
+
+        .ansi-cyan {
+            color: #00ffff;
+        }
+
+        .ansi-green {
+            color: #5cff5c;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="info">
+        <h1>Azul Monte Carlo AI Player</h1>
+    </div>
+    <div id="console">
+        <div id="output"></div>
+        <div id="input-line">
+            <span id="prompt">&gt;</span>
+            <input type="text" id="input" disabled placeholder="Loading..." autofocus>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        let pyodide = null;
+        let awaitingInput = false;
+        let inputCallback = null;
+
+        const output = document.getElementById('output');
+        const input = document.getElementById('input');
+        const prompt = document.getElementById('prompt');
+        const consoleDiv = document.getElementById('console');
+
+        // Map ANSI codes to CSS classes
+        const ansiToClass = {
+            '91': 'ansi-red',
+            '93': 'ansi-yellow',
+            '94': 'ansi-blue',
+            '35': 'ansi-magenta',
+            '97': 'ansi-white',
+            '96': 'ansi-cyan',
+            '92': 'ansi-green',
+        };
+
+        function ansiToHtml(text) {
+            // Split text by ANSI escape sequences
+            const parts = text.split(/(\x1b\[[0-9;]*m)/);
+            const container = document.createDocumentFragment();
+            let currentClass = null;
+            let currentSpan = null;
+
+            for (const part of parts) {
+                if (part.startsWith('\x1b[')) {
+                    // This is an ANSI code
+                    const code = part.match(/\x1b\[([0-9;]*)m/)?.[1];
+                    if (code === '0' || code === '') {
+                        // Reset
+                        currentClass = null;
+                        currentSpan = null;
+                    } else {
+                        currentClass = ansiToClass[code] || null;
+                    }
+                } else if (part) {
+                    // This is text content
+                    if (currentClass) {
+                        const span = document.createElement('span');
+                        span.className = currentClass;
+                        span.textContent = part;
+                        container.appendChild(span);
+                    } else {
+                        container.appendChild(document.createTextNode(part));
+                    }
+                }
+            }
+
+            return container;
+        }
+
+        function print(text, className = '') {
+            const span = document.createElement('span');
+            if (className) span.className = className;
+            span.appendChild(ansiToHtml(text));
+            span.appendChild(document.createTextNode('\n'));
+            output.appendChild(span);
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        }
+
+        function printRaw(text) {
+            output.appendChild(ansiToHtml(text));
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        }
+
+        async function getInput(promptText = '') {
+            if (promptText) {
+                printRaw(promptText);
+            }
+            prompt.style.display = 'inline';
+            input.disabled = false;
+            input.placeholder = '';
+            input.focus();
+
+            return new Promise((resolve) => {
+                inputCallback = resolve;
+                awaitingInput = true;
+            });
+        }
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && awaitingInput) {
+                const value = input.value;
+                print(value, 'prompt-text');
+                input.value = '';
+                input.disabled = true;
+                prompt.style.display = 'none';
+                awaitingInput = false;
+                if (inputCallback) {
+                    inputCallback(value);
+                    inputCallback = null;
+                }
+            }
+        });
+
+        async function main() {
+            print("Loading Python environment...", "system");
+
+            pyodide = await loadPyodide();
+            print("Pyodide loaded", "system");
+
+            await pyodide.loadPackage("micropip");
+            const micropip = pyodide.pyimport("micropip");
+            await micropip.install("numpy");
+            print("NumPy installed", "system");
+
+            // Load game files and write to virtual filesystem
+            print("Loading game code...", "system");
+
+            const envCode = await fetch("AzulEnvHeuristic.py").then(r => r.text());
+            pyodide.FS.writeFile("/home/pyodide/AzulEnvHeuristic.py", envCode);
+
+            const mcCode = await fetch("AzulMCHeuristic.py").then(r => r.text());
+            pyodide.FS.writeFile("/home/pyodide/AzulMCHeuristic.py", mcCode);
+
+            const scorePolicies = await fetch("AzulMCScorePolicies.py").then(r => r.text());
+            pyodide.FS.writeFile("/home/pyodide/AzulMCScorePolicies.py", scorePolicies);
+
+            const moveActors = await fetch("AzulSimluatedMoveActors.py").then(r => r.text());
+            pyodide.FS.writeFile("/home/pyodide/AzulSimluatedMoveActors.py", moveActors);
+
+            // Add directory to Python path and import modules
+            await pyodide.runPythonAsync(`
+import sys
+sys.path.insert(0, '/home/pyodide')
+
+from AzulEnvHeuristic import Azul, Phase
+from AzulMCHeuristic import MCTSPlayer
+from AzulMCScorePolicies import HeuristicScore
+from AzulSimluatedMoveActors import heuristic_mover, heuristic_mover_fast
+            `);
+
+            print("Game loaded!", "success");
+            print("");
+
+            await interactiveGame();
+        }
+
+        async function interactiveGame() {
+            const MCTS_ITERATIONS = 100;
+            const HUMAN_PLAYER = 0;
+
+            // Initialize game
+            await pyodide.runPythonAsync(`
+game = Azul(num_players=2)
+game.reset()
+
+mcts = MCTSPlayer(
+    iterations=${MCTS_ITERATIONS},
+    terminus_evaluator=HeuristicScore.heuristic_score,
+    opponent_sim_strategy=heuristic_mover_fast,
+    verbose=False,
+    filter_floor=True,
+)
+
+color_map = {
+    'blue': 0, 'b': 0,
+    'yellow': 1, 'y': 1,
+    'red': 2, 'r': 2,
+    'black': 3, 'k': 3,
+    'white': 4, 'w': 4,
+}
+color_names = ["Blue", "Yellow", "Red", "Black", "White"]
+            `);
+
+            print("=".repeat(50));
+            print("AZUL - Human vs Monte Carlo AI", "success");
+            print(`You are Player ${HUMAN_PLAYER}`);
+            print("=".repeat(50));
+            print("");
+            print("HOW TO PLAY", "ansi-green")
+            print("");
+            print("Input format: factory color line");
+            print("0-4 for factories, 'c' for center");
+            print("blue/b, yellow/y, red/r, black/k, white/w");
+            print("1-5 for lines, 'f' for floor");
+            print("Example: '0 blue 2' or '0 b 2' or 'c r f'", "ansi-green");
+            print("");
+
+            let roundNum = 1;
+
+            while (true) {
+                // Check game over
+                const gameOver = await pyodide.runPythonAsync(`game.game_over`);
+                if (gameOver) break;
+
+                // Check wall-tiling phase
+                const phase = await pyodide.runPythonAsync(`game.phase`);
+                if (phase === 1) {  // WALL_TILING
+                    print(`\n--- End of Round ${roundNum} ---`);
+                    await printGameState();
+                    await getInput("Press Enter to continue to wall-tiling...");
+                    await pyodide.runPythonAsync(`game.step(())`);
+                    roundNum++;
+                    continue;
+                }
+
+                const currentPlayer = await pyodide.runPythonAsync(`game.current_player`);
+                await printGameState();
+
+                if (currentPlayer === HUMAN_PLAYER) {
+                    // Human turn
+                    print("\nYour turn!");
+
+                    let validMove = false;
+                    while (!validMove) {
+                        const userInput = await getInput("Enter move (factory color line): ");
+
+                        // Validate and execute move in Python
+                        const result = await pyodide.runPythonAsync(`
+result = {"valid": False, "error": ""}
+try:
+    parts = "${userInput}".strip().lower().split()
+    
+    if len(parts) != 3:
+        result["error"] = "Invalid format. Use: factory color line (e.g., '0 blue 2')"
+    else:
+        # Parse factory/center
+        if parts[0] == 'c' or parts[0] == 'center':
+            source = game.num_factories
+        else:
+            source = int(parts[0])
+            if not (0 <= source < game.num_factories):
+                result["error"] = f"Factory must be 0-{game.num_factories - 1} or 'c' for center"
+        
+        if not result["error"]:
+            # Parse color
+            if parts[1] not in color_map:
+                result["error"] = "Color must be: blue/b, yellow/y, red/r, black/k, white/w"
+            else:
+                color = color_map[parts[1]]
+                
+                # Parse line/floor
+                if parts[2] == 'f' or parts[2] == 'floor':
+                    dest = 5
+                else:
+                    dest = int(parts[2]) - 1
+                    if not (0 <= dest < 5):
+                        result["error"] = "Line must be 1-5 or 'f' for floor"
+                
+                if not result["error"]:
+                    action = (source, color, dest)
+                    moves = game.get_legal_moves()
+                    
+                    if action in moves:
+                        game.step(action)
+                        result["valid"] = True
+                    else:
+                        result["error"] = f"Illegal move. Check available tiles and pattern lines."
+
+except ValueError as e:
+    result["error"] = "Invalid input. Use: factory color line (e.g., '0 blue 2')"
+
+result
+                        `);
+
+                        const moveResult = result.toJs({ dict_converter: Object.fromEntries });
+                        if (moveResult.valid) {
+                            validMove = true;
+                        } else {
+                            print(moveResult.error, "error");
+                        }
+                    }
+                } else {
+                    // MCTS turn
+                    print("\nMCTS is thinking...", "mcts");
+
+                    const moveDesc = await pyodide.runPythonAsync(`
+action = mcts.select_action(game)
+source = f"Factory {action[0]}" if action[0] < game.num_factories else "Center"
+color = color_names[action[1]]
+dest = f"Line {action[2] + 1}" if action[2] < 5 else "Floor"
+game.step(action)
+f"MCTS plays: {source} -> {color} -> {dest}"
+                    `);
+
+                    print(moveDesc, "mcts");
+                }
+            }
+
+            // Game over
+            print("\n" + "=".repeat(50));
+            print("GAME OVER!", "success");
+            await printGameState();
+
+            const scores = await pyodide.runPythonAsync(`list(game.scores)`);
+            const winner = await pyodide.runPythonAsync(`game.winner`);
+
+            print(`Final scores: ${scores}`);
+
+            if (winner === null) {
+                print("It's a tie!");
+            } else if (winner === HUMAN_PLAYER) {
+                print("Congratulations, you win!", "success");
+            } else {
+                print("MCTS wins!", "mcts");
+            }
+
+            print("");
+            const playAgain = await getInput("Play again? (y/n): ");
+            if (playAgain.toLowerCase() === 'y') {
+                output.innerHTML = '';
+                await interactiveGame();
+            }
+        }
+
+        async function printGameState() {
+            const state = await pyodide.runPythonAsync(`
+import io, sys
+buf = io.StringIO()
+sys.stdout = buf
+game.print_game()
+sys.stdout = sys.__stdout__
+buf.getvalue()
+            `);
+            printRaw(state);
+        }
+
+        main();
+    </script>
+</body>
+
+</html>
