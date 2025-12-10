@@ -8,6 +8,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Mono:wght@100..900&display=swap" rel="stylesheet">
 
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             background: #1e1e1e;
             color: #d4d4d4;
@@ -73,21 +77,45 @@
             outline: none;
         }
 
-        .empty-slot {
-            display: inline-block;
-            width: 1ch;
-            text-align: center;
-        }
-
         .empty-slot-plain {
-            color: #666;
+            color: #fdfdfd;
         }
 
-        .pattern-slot-empty {
+        .player-boards {
+            border: 1px dashed white;
+            padding-bottom: 1rem;
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+
+
+
+        .player-boards>.white-space-char,
+        .empty-slot,
+        .tile {
             display: inline-block;
-            width: 1ch;
+            width: 1rem;
+            height: 1rem;
+            line-height: 1rem;
+            vertical-align: top;
+            margin: 0 2px;
+        }
+
+        .player-boards>.white-space-char {
+            font-size: 0.5rem;
             text-align: center;
-            color: #666;
+        }
+
+        .empty-slot {
+            box-shadow: 0 0 0 1px rgba(120, 120, 120, 0.4), 0 0 0 1px;
+
+        }
+
+        .tile {
+            font-size: 0.8rem;
+            text-align: center;
+            /* border: 1px solid; */
+            box-shadow: 0px 0px 0 2px, inset 0 0 0 10px rgba(0, 0, 0, 0.7), inset 0 0 0 10px;
         }
 
         #input:disabled {
@@ -185,8 +213,30 @@
             '92': 'ansi-green',
         };
 
-        function ansiToHtml(text) {
+        function processBoard(text) {
+            const segments = text.split("\u25DA")
+            console.log("segments", segments.length, segments)
+            const containers = segments.map(segment => processANSI(segment))
+            console.log("containers", containers)
+            if (containers[1]) {
+                const boards = document.createElement("div")
+                boards.className = "player-boards"
+                boards.appendChild(containers[1])
+                containers[1] = boards
+                console.log("boards", containers[1])
+            }
+
+            const fragment = document.createDocumentFragment();
+            for (container of containers) {
+                console.log("adding container", container)
+                fragment.appendChild(container)
+            }
+            return fragment
+        }
+
+        function processANSI(text) {
             // Split text by ANSI escape sequences
+
             const parts = text.split(/(\x1b\[[0-9;]*m)/);
             const container = document.createDocumentFragment();
             let currentClass = null;
@@ -203,7 +253,9 @@
                     }
                 } else if (part) {
                     // This is text content - process character by character for special chars
-                    container.appendChild(processTextPart(part, currentClass));
+                    const fragment = processTextPart(part, currentClass);
+                    container.appendChild(fragment)
+
                 }
             }
 
@@ -212,26 +264,22 @@
 
         function processTextPart(text, colorClass) {
             const fragment = document.createDocumentFragment();
-
+            let board_segment = false;
             for (const char of text) {
                 const span = document.createElement('span');
+                if (char === ' ') {
+                    // Whitespace in grid
+                    span.className = 'white-space-char';
+                    span.textContent = ' ';
+                    fragment.appendChild(span);
+                } else if (char === '\u2610') {
+                    // Whitespace in grid
+                    span.className = `${colorClass} empty-slot`;
+                    // span.textContent = "";
+                    fragment.appendChild(span);
 
-                if (char === '\u2610') {
-                    // Empty box character (☐)
-                    if (colorClass) {
-                        span.className = `empty-slot ${colorClass}`;
-                    } else {
-                        span.className = 'empty-slot empty-slot-plain';
-                    }
-                    span.textContent = char;
-                    fragment.appendChild(span);
-                } else if (char === '.') {
-                    // Dot for empty pattern line slots
-                    span.className = 'pattern-slot-empty';
-                    span.textContent = char;
-                    fragment.appendChild(span);
                 } else if (colorClass) {
-                    span.className = colorClass;
+                    span.className = `${colorClass} tile`;
                     span.textContent = char;
                     fragment.appendChild(span);
                 } else {
@@ -244,14 +292,15 @@
         function print(text, className = '') {
             const span = document.createElement('span');
             if (className) span.className = className;
-            span.appendChild(ansiToHtml(text));
+            span.appendChild(processANSI(text));
             span.appendChild(document.createTextNode('\n'));
             output.appendChild(span);
             consoleDiv.scrollTop = consoleDiv.scrollHeight;
         }
 
         function printRaw(text) {
-            output.appendChild(ansiToHtml(text));
+            console.log(text)
+            output.appendChild(processBoard(text));
             consoleDiv.scrollTop = consoleDiv.scrollHeight;
         }
 

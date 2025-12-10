@@ -12,6 +12,7 @@ WALL_SIZE = 5
 FLOOR_LINE_SIZE = 7
 TILES_PER_COLOR = 20
 TILES_PER_FACTORY = 4
+FILL_CHAR = " "
 
 
 class TileColor(IntEnum):
@@ -636,6 +637,8 @@ class Azul:
 
     def print_boards_side_by_side(self, state: dict):
         """Print all player boards side-by-side like physical Azul boards."""
+        print("◚")
+
         color_chars = ["B", "Y", "R", "K", "W"]
         empty_slot = "☐"  # or '□' if this doesn't render well
         board_width = 22  # Width of each player's board section
@@ -644,14 +647,20 @@ class Azul:
         header = ""
         for p in range(self.num_players):
             player_header = f"Player {p} (Score: {state['scores'][p]})"
-            header += player_header.ljust(board_width) + "   "
+            header += player_header.ljust(board_width) + " " * 3
         print(header)
         print("-" * (board_width * self.num_players + 3 * (self.num_players - 1)))
 
         # Pattern lines label
         label_row = ""
         for p in range(self.num_players):
-            label_row += "Pattern Lines  Wall".ljust(board_width) + "   "
+            label_row += (
+                FILL_CHAR * 4
+                + "Lines".center(5, FILL_CHAR)
+                + FILL_CHAR * 4
+                + "Wall".center(5, FILL_CHAR)
+                + FILL_CHAR * 2
+            )
         print(label_row)
 
         # Print each row (pattern line + wall row combined)
@@ -667,12 +676,12 @@ class Azul:
                 padding = 5 - capacity
                 if color >= 0:
                     pattern_str = (
-                        " " * padding
+                        FILL_CHAR * padding
                         + "☐" * (capacity - count)
                         + colorize(color_chars[color], color) * count
                     )
                 else:
-                    pattern_str = " " * padding + "☐" * capacity
+                    pattern_str = FILL_CHAR * padding + "☐" * capacity
 
                 # Build wall row string
                 wall_str = ""
@@ -686,10 +695,10 @@ class Azul:
                         wall_str += colorize(empty_slot, wall_color)
 
                 # Combine: pattern line (5) + separator (4) + wall (5) + padding
-                player_section = f"{pattern_str}    {wall_str}"
-                line += player_section.ljust(board_width) + "   "
+                player_section = pattern_str + FILL_CHAR * 2 + wall_str
+                line += player_section.ljust(board_width) + FILL_CHAR * 3
 
-            print(f"  {row + 1}: {line}")
+            print(f"{FILL_CHAR}{row + 1}:{FILL_CHAR}{line}")
 
         # Floor lines
         print()
@@ -701,6 +710,7 @@ class Azul:
                 floor_str += f"(+{floor_count - FLOOR_LINE_SIZE})"
             floor_row += floor_str.ljust(board_width) + "   "
         print(floor_row)
+        print("◚")
         print()
 
     @staticmethod
