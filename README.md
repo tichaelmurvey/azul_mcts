@@ -6,7 +6,7 @@ It also contains a human-readable text interface for Azul, allowing users to pla
 ## How to Use
 
 ### Web version
-You can play against a [standard version of the AI online]([url](https://tichaelmurvey.github.io/azul_mcts/)).
+You can play against a [standard version of the AI online](https://tichaelmurvey.github.io/azul_mcts/).
 
 ### Use locally and edit
 To use the AI locally, try different model parameters, or improve the system, you can clone this repo.
