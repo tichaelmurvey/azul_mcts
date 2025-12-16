@@ -1,5 +1,6 @@
 # AI Azul Player and Game Interface
 🟥🟪🟦🟩🟨🟧
+
 This repo contains code for an AI player using the Monte Carlo Tree Search Method.
 It also contains a human-readable text interface for Azul, allowing users to play against the AI.
 
