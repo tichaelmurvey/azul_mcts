@@ -18,9 +18,15 @@ To use the AI locally, try different model parameters, or improve the system, yo
 
 ## Model Adjustment
 **AzulMCHeuristic.py** contains the Monte Carlo Tree Search agent.
+
 The following params can be used to modify its behaviour:
-**Iterations**: How many moves will the model explore to check outcomes? Can be overridden with a time limit per move.
-**Time limit**: Overrides Iterations. Instead of exploring a number of moves, the model will explore until the time runs out.
-**Terminus evaluator**: How should the model judge the value of end states? Uses heuristic_score by default, but other options can be defined.
-**Opponent simulated strategy**: How should the model predict opponent moves when simulating outcomes?
-**Filter floor**: Should the model consider moves that move directly to the floor? (These moves are almost never useful)
+
+* **Iterations**: How many moves will the model explore to check outcomes? Can be overridden with a time limit per move.
+
+* **Time limit**: Overrides Iterations. Instead of exploring a number of moves, the model will explore until the time runs out.
+
+* **Terminus evaluator**: How should the model judge the value of end states? Uses heuristic_score by default, but other options can be defined.
+
+* **Opponent simulated strategy**: How should the model predict opponent moves when simulating outcomes?
+
+* **Filter floor**: Should the model consider moves that move directly to the floor? (These moves are almost never useful)
